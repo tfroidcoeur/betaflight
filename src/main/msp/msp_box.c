@@ -100,6 +100,10 @@ static const box_t boxes[CHECKBOX_ITEM_COUNT] = {
     { .boxId = BOXMSPOVERRIDE, .boxName = "MSP OVERRIDE", .permanentId = 50},
     { .boxId = BOXSTICKCOMMANDDISABLE, .boxName = "STICK COMMANDS DISABLE", .permanentId = 51},
     { .boxId = BOXBEEPERMUTE, .boxName = "BEEPER MUTE", .permanentId = 52},
+    { .boxId = BOXLEDPRESET0, .boxName = "LED PRESET 0", .permanentId = 53},
+    { .boxId = BOXLEDPRESET1, .boxName = "LED PRESET 1", .permanentId = 54},
+    { .boxId = BOXLEDPRESET2, .boxName = "LED PRESET 2", .permanentId = 55},
+    { .boxId = BOXLEDPRESET3, .boxName = "LED PRESET 3", .permanentId = 56},
 };
 
 // mask of enabled IDs, calculated on startup based on enabled features. boxId_e is used as bit index
@@ -236,6 +240,10 @@ void initActiveBoxIds(void)
 #ifdef USE_LED_STRIP
     if (featureIsEnabled(FEATURE_LED_STRIP)) {
         BME(BOXLEDLOW);
+        BME(BOXLEDPRESET0);
+        BME(BOXLEDPRESET1);
+        BME(BOXLEDPRESET2);
+        BME(BOXLEDPRESET3);
     }
 #endif
 
