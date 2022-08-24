@@ -197,6 +197,11 @@ typedef struct ledStripStatusModeConfig_s {
 } ledStripStatusModeConfig_t;
 
 PG_DECLARE(ledStripStatusModeConfig_t, ledStripStatusModeConfig);
+
+#define LEDSTRIP_PRESET_COUNT 4
+
+PG_DECLARE_ARRAY(ledStripStatusModeConfig_t, LEDSTRIP_PRESET_COUNT, ledStripConfigPreset);
+const ledStripStatusModeConfig_t * getCurrentLedStripStatusModeConfig();
 #endif
 
 #define LF(name) LED_FUNCTION_ ## name

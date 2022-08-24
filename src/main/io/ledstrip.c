@@ -193,6 +193,13 @@ void pgResetFn_ledStripStatusModeConfig(ledStripStatusModeConfig_t *ledStripStat
     ledStripStatusModeConfig->ledstrip_aux_channel = THROTTLE;
 }
 
+PG_REGISTER_ARRAY_WITH_RESET_FN(ledStripStatusModeConfig_t, LEDSTRIP_PRESET_COUNT, ledStripConfigPreset, PG_LED_STRIP_PRESET_CONFIG, 0);
+void pgResetFn_ledStripConfigPreset(ledStripStatusModeConfig_t *ledStripPreset){
+    for (uint8_t i = 0; i < LEDSTRIP_PRESET_COUNT; i++) {
+        pgResetFn_ledStripStatusModeConfig(&ledStripPreset[i]);
+    }
+}
+
 #define ROTATION_SEQUENCE_LED_COUNT 6 // 2 on, 4 off
 #define ROTATION_SEQUENCE_LED_WIDTH 2 // 2 on
 
