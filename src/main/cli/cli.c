@@ -1922,11 +1922,32 @@ static void cliRxRange(const char *cmdName, char *cmdline)
 }
 
 #ifdef USE_LED_STRIP_STATUS_MODE
-static void printLed(dumpFlags_t dumpMask, const ledConfig_t *ledConfigs, const ledConfig_t *defaultLedConfigs, const char *headingStr)
+static int parsePreset(const char **cmdline){
+        int preset = 0;
+        const char *ptr = *cmdline;
+
+        if (strncasecmp(ptr, "preset", 5) == 0){
+            ptr = nextArg(ptr);
+            preset = atoi(ptr);
+            ptr = nextArg(ptr);
+        }
+
+        *cmdline = ptr;
+
+        return preset;
+}
+
+static bool isValidLedStripPresetIdx(int i)
 {
-    const char *format = "led %u %s";
+    return (i >= 0 && i < LEDSTRIP_PRESET_COUNT);
+}
+
+static void printLed(dumpFlags_t dumpMask, const ledConfig_t *ledConfigs, const ledConfig_t *defaultLedConfigs, const char *headingStr, uint32_t preset)
+{
+    const char *format = "led preset %d %u %s";
     char ledConfigBuffer[20];
     char ledConfigDefaultBuffer[20];
+
     headingStr = cliPrintSectionHeading(dumpMask, false, headingStr);
     for (uint32_t i = 0; i < LED_MAX_STRIP_LENGTH; i++) {
         ledConfig_t ledConfig = ledConfigs[i];
@@ -1937,29 +1958,37 @@ static void printLed(dumpFlags_t dumpMask, const ledConfig_t *ledConfigs, const 
             equalsDefault = ledConfig == ledConfigDefault;
             headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
             generateLedConfig(&ledConfigDefault, ledConfigDefaultBuffer, sizeof(ledConfigDefaultBuffer));
-            cliDefaultPrintLinef(dumpMask, equalsDefault, format, i, ledConfigDefaultBuffer);
+            cliDefaultPrintLinef(dumpMask, equalsDefault, format, preset, i, ledConfigDefaultBuffer);
         }
-        cliDumpPrintLinef(dumpMask, equalsDefault, format, i, ledConfigBuffer);
+        cliDumpPrintLinef(dumpMask, equalsDefault, format, preset, i, ledConfigBuffer);
     }
 }
 
 static void cliLed(const char *cmdName, char *cmdline)
 {
-    const char *format = "led %u %s";
+    const char *format = "led %s%u %s";
     char ledConfigBuffer[20];
     int i;
-    const char *ptr;
 
     if (isEmpty(cmdline)) {
-        printLed(DUMP_MASTER, ledStripStatusModeConfig()->ledConfigs, NULL, NULL);
+        for (uint32_t i = 0; i < LEDSTRIP_PRESET_COUNT; i++) {
+            printLed(DUMP_MASTER, ledStripConfigPreset(i)->ledConfigs, NULL, NULL, i);
+        }
     } else {
-        ptr = cmdline;
+        const char *ptr = cmdline;
+        char presetstr[11]="";
+        int preset = parsePreset(&ptr);
+
+        if (preset > 0) {
+            tfp_sprintf(presetstr, "preset %d ", preset);
+        }
+
         i = atoi(ptr);
         if (i >= 0 && i < LED_MAX_STRIP_LENGTH) {
-            ptr = nextArg(cmdline);
-            if (parseLedStripConfig(i, ptr)) {
-                generateLedConfig((ledConfig_t *)&ledStripStatusModeConfig()->ledConfigs[i], ledConfigBuffer, sizeof(ledConfigBuffer));
-                cliDumpPrintLinef(0, false, format, i, ledConfigBuffer);
+            ptr = nextArg(ptr);
+            if (parseLedStripConfig(preset, i, ptr)) {
+                generateLedConfig((ledConfig_t *)&ledStripConfigPreset(preset)->ledConfigs[i], ledConfigBuffer, sizeof(ledConfigBuffer));
+                cliDumpPrintLinef(0, false, format, presetstr, i, ledConfigBuffer);
             } else {
                 cliShowParseError(cmdName);
             }
@@ -1969,9 +1998,10 @@ static void cliLed(const char *cmdName, char *cmdline)
     }
 }
 
-static void printColor(dumpFlags_t dumpMask, const hsvColor_t *colors, const hsvColor_t *defaultColors, const char *headingStr)
+static void printColor(dumpFlags_t dumpMask, const hsvColor_t *colors, const hsvColor_t *defaultColors, const char *headingStr, uint32_t preset)
 {
-    const char *format = "color %u %d,%u,%u";
+    const char *format = "color preset %u %u %d,%u,%u";
+
     headingStr = cliPrintSectionHeading(dumpMask, false, headingStr);
     for (uint32_t i = 0; i < LED_CONFIGURABLE_COLOR_COUNT; i++) {
         const hsvColor_t *color = &colors[i];
@@ -1980,25 +2010,39 @@ static void printColor(dumpFlags_t dumpMask, const hsvColor_t *colors, const hsv
             const hsvColor_t *colorDefault = &defaultColors[i];
             equalsDefault = !memcmp(color, colorDefault, sizeof(*color));
             headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
-            cliDefaultPrintLinef(dumpMask, equalsDefault, format, i,colorDefault->h, colorDefault->s, colorDefault->v);
+            cliDefaultPrintLinef(dumpMask, equalsDefault, format, preset, i,colorDefault->h, colorDefault->s, colorDefault->v);
         }
-        cliDumpPrintLinef(dumpMask, equalsDefault, format, i, color->h, color->s, color->v);
+        cliDumpPrintLinef(dumpMask, equalsDefault, format, preset, i, color->h, color->s, color->v);
     }
 }
 
 static void cliColor(const char *cmdName, char *cmdline)
 {
-    const char *format = "color %u %d,%u,%u";
+    const char *format = "color %s%u %d,%u,%u";
     if (isEmpty(cmdline)) {
-        printColor(DUMP_MASTER, ledStripStatusModeConfig()->colors, NULL, NULL);
+        for (uint32_t i = 0; i < LEDSTRIP_PRESET_COUNT; i++) {
+            printColor(DUMP_MASTER, ledStripConfigPreset(i)->colors, NULL, NULL, i);
+        }
     } else {
         const char *ptr = cmdline;
+        char presetstr[11]="";
+        int preset = parsePreset(&ptr);
         const int i = atoi(ptr);
+
+        if (!isValidLedStripPresetIdx(preset)) {
+            cliShowArgumentRangeError(cmdName, "preset", 0, LEDSTRIP_PRESET_COUNT- 1);
+            return;
+        }
+
+        if (preset > 0) {
+            tfp_sprintf(presetstr, "preset %d ", preset);
+        }
+
         if (i < LED_CONFIGURABLE_COLOR_COUNT) {
-            ptr = nextArg(cmdline);
-            if (parseColor(i, ptr)) {
-                const hsvColor_t *color = &ledStripStatusModeConfig()->colors[i];
-                cliDumpPrintLinef(0, false, format, i, color->h, color->s, color->v);
+            ptr = nextArg(ptr);
+            if (parseColor(preset, i, ptr)) {
+                const hsvColor_t *color = &ledStripConfigPreset(preset)->colors[i];
+                cliDumpPrintLinef(0, false, format, presetstr, i, color->h, color->s, color->v);
             } else {
                 cliShowParseError(cmdName);
             }
@@ -2008,9 +2052,10 @@ static void cliColor(const char *cmdName, char *cmdline)
     }
 }
 
-static void printModeColor(dumpFlags_t dumpMask, const ledStripStatusModeConfig_t *ledStripStatusModeConfig, const ledStripStatusModeConfig_t *defaultLedStripConfig, const char *headingStr)
+static void printModeColor(dumpFlags_t dumpMask, const ledStripStatusModeConfig_t *ledStripStatusModeConfig, const ledStripStatusModeConfig_t *defaultLedStripConfig, const char *headingStr, int preset)
 {
-    const char *format = "mode_color %u %u %u";
+    const char *format = "mode_color preset %d %u %u %u";
+
     headingStr = cliPrintSectionHeading(dumpMask, false, headingStr);
     for (uint32_t i = 0; i < LED_MODE_COUNT; i++) {
         for (uint32_t j = 0; j < LED_DIRECTION_COUNT; j++) {
@@ -2020,9 +2065,9 @@ static void printModeColor(dumpFlags_t dumpMask, const ledStripStatusModeConfig_
                 int colorIndexDefault = defaultLedStripConfig->modeColors[i].color[j];
                 equalsDefault = colorIndex == colorIndexDefault;
                 headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
-                cliDefaultPrintLinef(dumpMask, equalsDefault, format, i, j, colorIndexDefault);
+                cliDefaultPrintLinef(dumpMask, equalsDefault, format, preset, i, j, colorIndexDefault);
             }
-            cliDumpPrintLinef(dumpMask, equalsDefault, format, i, j, colorIndex);
+            cliDumpPrintLinef(dumpMask, equalsDefault, format, preset, i, j, colorIndex);
         }
     }
 
@@ -2033,9 +2078,9 @@ static void printModeColor(dumpFlags_t dumpMask, const ledStripStatusModeConfig_
             const int colorIndexDefault = defaultLedStripConfig->specialColors.color[j];
             equalsDefault = colorIndex == colorIndexDefault;
             headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
-            cliDefaultPrintLinef(dumpMask, equalsDefault, format, LED_SPECIAL, j, colorIndexDefault);
+            cliDefaultPrintLinef(dumpMask, equalsDefault, format, preset, LED_SPECIAL, j, colorIndexDefault);
         }
-        cliDumpPrintLinef(dumpMask, equalsDefault, format, LED_SPECIAL, j, colorIndex);
+        cliDumpPrintLinef(dumpMask, equalsDefault, format, preset, LED_SPECIAL, j, colorIndex);
     }
 
     const int ledStripAuxChannel = ledStripStatusModeConfig->ledstrip_aux_channel;
@@ -2044,21 +2089,37 @@ static void printModeColor(dumpFlags_t dumpMask, const ledStripStatusModeConfig_
         const int ledStripAuxChannelDefault = defaultLedStripConfig->ledstrip_aux_channel;
         equalsDefault = ledStripAuxChannel == ledStripAuxChannelDefault;
         headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
-        cliDefaultPrintLinef(dumpMask, equalsDefault, format, LED_AUX_CHANNEL, 0, ledStripAuxChannelDefault);
+        cliDefaultPrintLinef(dumpMask, equalsDefault, format, preset, LED_AUX_CHANNEL, 0, ledStripAuxChannelDefault);
     }
-    cliDumpPrintLinef(dumpMask, equalsDefault, format, LED_AUX_CHANNEL, 0, ledStripAuxChannel);
+    cliDumpPrintLinef(dumpMask, equalsDefault, format, preset, LED_AUX_CHANNEL, 0, ledStripAuxChannel);
 }
 
 static void cliModeColor(const char *cmdName, char *cmdline)
 {
     if (isEmpty(cmdline)) {
-        printModeColor(DUMP_MASTER, ledStripStatusModeConfig(), NULL, NULL);
+        for (uint32_t i = 0; i < LEDSTRIP_PRESET_COUNT; i++) {
+            printModeColor(DUMP_MASTER, ledStripConfigPreset(i), NULL, NULL, i);
+        }
     } else {
         enum {MODE = 0, FUNCTION, COLOR, ARGS_COUNT};
         int args[ARGS_COUNT];
         int argNo = 0;
         char *saveptr;
-        const char* ptr = strtok_r(cmdline, " ", &saveptr);
+        const char* ptr = cmdline;
+        
+        char presetstr[11]="";
+        int preset = parsePreset(&ptr);
+
+        if (!isValidLedStripPresetIdx(preset)) {
+            cliShowArgumentRangeError(cmdName, "preset", 0, LEDSTRIP_PRESET_COUNT- 1);
+            return;
+        }
+
+        if (preset > 0) {
+            tfp_sprintf(presetstr, "preset %d ", preset);
+        }
+
+        ptr = strtok_r((char*) ptr, " ", &saveptr);
         while (ptr && argNo < ARGS_COUNT) {
             args[argNo++] = atoi(ptr);
             ptr = strtok_r(NULL, " ", &saveptr);
@@ -2072,14 +2133,49 @@ static void cliModeColor(const char *cmdName, char *cmdline)
         int modeIdx  = args[MODE];
         int funIdx = args[FUNCTION];
         int color = args[COLOR];
-        if (!setModeColor(modeIdx, funIdx, color)) {
+        if (!setModeColor(preset, modeIdx, funIdx, color)) {
             cliShowParseError(cmdName);
             return;
         }
         // values are validated
-        cliPrintLinef("mode_color %u %u %u", modeIdx, funIdx, color);
+        cliPrintLinef("mode_color %s%u %u %u", presetstr, modeIdx, funIdx, color);
     }
 }
+
+
+static void cliLedPresetCopy(const char *cmdName, char *cmdline)
+{
+    int s_idx, d_idx;
+    const char *ptr;
+
+    if (isEmpty(cmdline)) {
+        cliShowInvalidArgumentCountError(cmdName);
+    } else {
+        ptr = cmdline;
+        d_idx = atoi(ptr);
+        ptr = nextArg(cmdline);
+        if (ptr) {
+            s_idx = atoi(ptr);
+        } else  {
+            cliShowInvalidArgumentCountError(cmdName);
+            return;
+        }
+
+        if (!isValidLedStripPresetIdx(s_idx)) {
+            cliShowArgumentRangeError(cmdName, "DEST INDEX", 0, LEDSTRIP_PRESET_COUNT- 1);
+            return;
+        }
+
+        if (!isValidLedStripPresetIdx(d_idx)) {
+            ptr = nextArg(cmdline);
+            memcpy(ledStripConfigPresetMutable(d_idx), ledStripConfigPreset(s_idx), sizeof(ledStripStatusModeConfig_t));
+        } else {
+            cliShowArgumentRangeError(cmdName, "SRC INDEX", 0, LEDSTRIP_PRESET_COUNT- 1);
+        }
+    }
+}
+
+
 #endif
 
 #ifdef USE_SERVOS
@@ -4367,7 +4463,7 @@ static void cliDefaults(const char *cmdName, char *cmdline)
 
             if (!parameterGroupId) {
                 cliShowParseError(cmdName);
-                
+
                 return;
             }
         } else if (strcasestr(tok, "group_id")) {
@@ -6332,11 +6428,13 @@ static void printConfig(const char *cmdName, char *cmdline, bool doDiff)
             printMap(dumpMask, &rxConfig_Copy, rxConfig(), "map");
 
 #ifdef USE_LED_STRIP_STATUS_MODE
-            printLed(dumpMask, ledStripStatusModeConfig_Copy.ledConfigs, ledStripStatusModeConfig()->ledConfigs, "led");
+            for (uint32_t i; i< LEDSTRIP_PRESET_COUNT; i++) {
+                printLed(dumpMask, ledStripConfigPreset_CopyArray[i].ledConfigs, ledStripConfigPreset(i)->ledConfigs, "led", i);
 
-            printColor(dumpMask, ledStripStatusModeConfig_Copy.colors, ledStripStatusModeConfig()->colors, "color");
+                printColor(dumpMask, ledStripConfigPreset_CopyArray[i].colors, ledStripConfigPreset(i)->colors, "color", i);
 
-            printModeColor(dumpMask, &ledStripStatusModeConfig_Copy, ledStripStatusModeConfig(), "mode_color");
+                printModeColor(dumpMask, &ledStripConfigPreset_CopyArray[i], ledStripConfigPreset(i), "mode_color", i);
+            }
 #endif
 
             printAux(dumpMask, modeActivationConditions_CopyArray, modeActivationConditions(0), "aux");
@@ -6567,6 +6665,7 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("help", "display command help", "[search string]", cliHelp),
 #ifdef USE_LED_STRIP_STATUS_MODE
         CLI_COMMAND_DEF("led", "configure leds", NULL, cliLed),
+        CLI_COMMAND_DEF("led_preset_copy", "copy led preset index SRC to index DEST", "<src idx> <dest idx>", cliLedPresetCopy),
 #endif
 #if defined(USE_BOARD_INFO)
     CLI_COMMAND_DEF("manufacturer_id", "get / set the id of the board manufacturer", "[manufacturer id]", cliManufacturerId),

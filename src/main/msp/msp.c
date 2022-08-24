@@ -3685,7 +3685,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             int funIdx = sbufReadU8(src);
             int color = sbufReadU8(src);
 
-            if (!setModeColor(modeIdx, funIdx, color)) {
+            if (!setModeColor(ledStripConfig()->ledstrip_preset_default, modeIdx, funIdx, color)) {
                 return MSP_RESULT_ERROR;
             }
         }

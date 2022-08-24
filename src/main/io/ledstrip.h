@@ -183,6 +183,7 @@ typedef struct ledStripConfig_s {
     uint8_t ledstrip_beacon_armed_only;
     colorId_e ledstrip_visual_beeper_color;
     uint8_t ledstrip_brightness;
+    uint8_t ledstrip_preset_default;
 } ledStripConfig_t;
 
 PG_DECLARE(ledStripConfig_t, ledStripConfig);
@@ -196,8 +197,20 @@ typedef struct ledStripStatusModeConfig_s {
     uint8_t ledstrip_aux_channel;
 } ledStripStatusModeConfig_t;
 
-PG_DECLARE(ledStripStatusModeConfig_t, ledStripStatusModeConfig);
+#define LEDSTRIP_PRESET_COUNT 4
+
+PG_DECLARE_ARRAY(ledStripStatusModeConfig_t, LEDSTRIP_PRESET_COUNT, ledStripConfigPreset);
+const ledStripStatusModeConfig_t * getCurrentLedStripStatusModeConfig();
 #endif
+
+/* the old ledStripStatusModeConfig is virtual now, one of the available presets */
+static inline const ledStripStatusModeConfig_t * ledStripStatusModeConfig(){
+    return ledStripConfigPreset(ledStripConfig()->ledstrip_preset_default);
+}
+
+static inline ledStripStatusModeConfig_t * ledStripStatusModeConfigMutable(){
+    return ledStripConfigPresetMutable(ledStripConfig()->ledstrip_preset_default);
+}
 
 #define LF(name) LED_FUNCTION_ ## name
 #define LO(name) LED_FLAG_OVERLAY(LED_OVERLAY_ ## name)
@@ -216,9 +229,9 @@ static inline uint8_t ledGetParams(const ledConfig_t *lcfg)     { return ((*lcfg
 static inline bool ledGetOverlayBit(const ledConfig_t *lcfg, int id) { return ((ledGetOverlay(lcfg) >> id) & 1); }
 static inline bool ledGetDirectionBit(const ledConfig_t *lcfg, int id) { return ((ledGetDirection(lcfg) >> id) & 1); }
 
-bool parseColor(int index, const char *colorConfig);
+bool parseColor(uint32_t preset, int index, const char *colorConfig);
 
-bool parseLedStripConfig(int ledIndex, const char *config);
+bool parseLedStripConfig(uint32_t preset, int ledIndex, const char *config);
 void generateLedConfig(ledConfig_t *ledConfig, char *ledConfigBuffer, size_t bufferSize);
 void reevaluateLedConfig(void);
 
@@ -227,7 +240,7 @@ void ledStripEnable(void);
 void ledStripDisable(void);
 void ledStripUpdate(timeUs_t currentTimeUs);
 
-bool setModeColor(ledModeIndex_e modeIndex, int modeColorIndex, int colorIndex);
+bool setModeColor(int preset, ledModeIndex_e modeIndex, int modeColorIndex, int colorIndex);
 
 void applyDefaultLedStripConfig(ledConfig_t *ledConfig);
 void applyDefaultColors(hsvColor_t *colors);

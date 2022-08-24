@@ -291,6 +291,8 @@
 #define MSP_CALCULATE_SIMPLIFIED_GYRO     143    //out message    Requests calculations of gyro filter values based on sliders. Sends the calculated values back. But don't save anything to the firmware
 #define MSP_CALCULATE_SIMPLIFIED_DTERM    144    //out message    Requests calculations of gyro filter values based on sliders. Sends the calculated values back. But don't save anything to the firmware
 #define MSP_VALIDATE_SIMPLIFIED_TUNING    145    //out message    Returns an array of true/false showing which simpligfied tuning groups are matching with value and which are not
+#define MSP_LEDSTRIP_PRESET               146
+#define MSP_SET_LEDSTRIP_PRESET           147
 
 #define MSP_SET_RAW_RC           200    //in message          8 rc chan
 #define MSP_SET_RAW_GPS          201    //in message          fix, numsat, lat, lon, alt, speed
