@@ -2075,6 +2075,75 @@ static void cliModeColor(const char *cmdName, char *cmdline)
         cliPrintLinef("mode_color %u %u %u", modeIdx, funIdx, color);
     }
 }
+
+static void printLEDPreset(dumpFlags_t dumpMask, const ledStripStatusModeConfig_t *ledStripStatusModeConfig, const ledStripStatusModeConfig_t *defaultLedStripConfig, const char *headingStr){
+        printLed(dumpMask, ledStripStatusModeConfig->ledConfigs, defaultLedStripConfig->ledConfigs, headingStr);
+        printColor(dumpMask, ledStripStatusModeConfig->colors, defaultLedStripConfig->colors, NULL);
+        printModeColor(dumpMask, ledStripStatusModeConfig, defaultLedStripConfig, NULL);
+}
+
+static void cliLedPreset(const char *cmdName, char *cmdline)
+{
+    int i;
+    const char *ptr;
+
+    if (isEmpty(cmdline)) {
+        for (i = 0; i < LEDSTRIP_PRESET_COUNT; i++) {
+            cliPrintLinef("LED Preset %d", i);
+            printLEDPreset(DUMP_MASTER, ledStripConfigPreset(i), NULL, NULL);
+            cliPrintLinefeed();
+        }
+    } else {
+        ptr = cmdline;
+        i = atoi(ptr);
+        if (i >= 0 && i < LEDSTRIP_PRESET_COUNT) {
+            ptr = nextArg(cmdline);
+            printLEDPreset(DUMP_MASTER, ledStripConfigPreset(i), NULL, NULL);
+        } else {
+            cliShowArgumentRangeError(cmdName, "INDEX", 0, LEDSTRIP_PRESET_COUNT- 1);
+        }
+    }
+}
+
+static void cliLedPresetSave(const char *cmdName, char *cmdline)
+{
+    int i;
+    const char *ptr;
+
+    if (isEmpty(cmdline)) {
+        cliShowInvalidArgumentCountError(cmdName);
+    } else {
+        ptr = cmdline;
+        i = atoi(ptr);
+        if (i >= 0 && i < LEDSTRIP_PRESET_COUNT) {
+            ptr = nextArg(cmdline);
+            memcpy(ledStripConfigPresetMutable(i), ledStripStatusModeConfig(), sizeof(ledStripStatusModeConfig_t));
+        } else {
+            cliShowArgumentRangeError(cmdName, "INDEX", 0, LEDSTRIP_PRESET_COUNT- 1);
+        }
+    }
+}
+
+static void cliLedPresetLoad(const char *cmdName, char *cmdline)
+{
+    int i;
+    const char *ptr;
+
+    if (isEmpty(cmdline)) {
+        cliShowInvalidArgumentCountError(cmdName);
+    } else {
+        ptr = cmdline;
+        i = atoi(ptr);
+        if (i >= 0 && i < LEDSTRIP_PRESET_COUNT) {
+            ptr = nextArg(cmdline);
+            memcpy(ledStripStatusModeConfigMutable(), ledStripConfigPreset(i), sizeof(ledStripStatusModeConfig_t));
+        } else {
+            cliShowArgumentRangeError(cmdName, "INDEX", 0, LEDSTRIP_PRESET_COUNT- 1);
+        }
+    }
+}
+
+
 #endif
 
 #ifdef USE_SERVOS
@@ -4362,7 +4431,7 @@ static void cliDefaults(const char *cmdName, char *cmdline)
 
             if (!parameterGroupId) {
                 cliShowParseError(cmdName);
-                
+
                 return;
             }
         } else if (strcasestr(tok, "group_id")) {
@@ -6558,6 +6627,9 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("help", "display command help", "[search string]", cliHelp),
 #ifdef USE_LED_STRIP_STATUS_MODE
         CLI_COMMAND_DEF("led", "configure leds", NULL, cliLed),
+        CLI_COMMAND_DEF("led_preset", "print led presets", NULL, cliLedPreset),
+        CLI_COMMAND_DEF("led_preset_save", "save current led status mode config to preset", NULL, cliLedPresetSave),
+        CLI_COMMAND_DEF("led_preset_load", "load current led status mode config from preset", NULL, cliLedPresetLoad),
 #endif
 #if defined(USE_BOARD_INFO)
     CLI_COMMAND_DEF("manufacturer_id", "get / set the id of the board manufacturer", "[manufacturer id]", cliManufacturerId),
